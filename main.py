@@ -56,7 +56,8 @@ set_site_information(
     planning=["CS1 Final Project 0_ Pick a Problem","Avery Miller - CS1 Final Project 1_Design"],
     links=["https://github.com/averymiller08/Stoichiometry-Calculator"],
 )
-
+hide_debug_information()
+set_website_framed(False)
 # =========================================
 # STYLE CONSTANTS
 # =========================================
