@@ -167,9 +167,10 @@ jobs:
             --production
           )
 
-          for path in "${ADDITIONAL_PATHS[@]}"; do
-            DRAFTER_RUN+=(--additional-paths "$path")
-          done
+           if [[ ${#ADDITIONAL_PATHS[@]} -gt 0 ]]; then
+            ADDITIONAL_PATHS_STRING=$(IFS=';'; echo "${ADDITIONAL_PATHS[*]}")
+            DRAFTER_RUN+=(--additional-paths "$ADDITIONAL_PATHS_STRING")
+           fi
 
           # Keep the course dashboard reachable from Drafter's generated
           # auxiliary links without coupling the dashboard to the build itself.
