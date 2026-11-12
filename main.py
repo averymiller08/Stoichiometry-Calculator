@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 
 from bakery import assert_equal
 from drafter import *
-from Molar_masses import MOLAR_MASSES
+from Molar_masses.py import MOLAR_MASSES
 
 # =========================================
 # SITE INFORMATION (required by the rubric)
