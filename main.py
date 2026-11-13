@@ -35,10 +35,14 @@ explained again, right where it is used:
     [Element(s, n) for s, n in parts] splits each (symbol, count) pair.
 11. Testing with bakery.assert_equal
     Compares an actual value with an expected value and reports pass/fail.
+12. Type-checker helpers (typing.Any, "# type: ignore")
+    Used only to keep the type checker (mypy) quiet; they do not change
+    how the program runs. See card() and summary().
 """
 
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Any
 
 from bakery import assert_equal
 from drafter import *
@@ -435,6 +439,9 @@ def count_atoms(molecules: list[Molecule]) -> Counter:
 
     ADVANCED: Counter is a dictionary subclass that treats missing keys as
     0, so we can use += without first checking whether the key exists.
+    The ": Counter[str]" is a type annotation telling the type checker that
+    the keys are strings (element symbols); it does not change how the code
+    runs.
 
     Args:
         molecules: The molecules on one side of the equation.
@@ -442,7 +449,7 @@ def count_atoms(molecules: list[Molecule]) -> Counter:
     Returns:
         A Counter mapping element symbol to total atom count.
     """
-    totals = Counter()
+    totals: Counter[str] = Counter()
     for molecule in molecules:
         for element in molecule.elements:
             totals[element.abbreviation] += element.subscript * molecule.coefficient
@@ -488,6 +495,12 @@ def card(*content) -> Div:
     into a tuple (variadic arguments). Div(*content) then unpacks that tuple
     back into separate arguments.
 
+    ADVANCED: `box: Any` tells the type checker that this variable may hold
+    different kinds of values as it is restyled. Each change_... function
+    returns a general component, which the checker would otherwise reject
+    for a variable first created as a Div. It does not change how the code
+    runs.
+
     Not unit tested: it returns a Drafter component, and comparing styled
     components is not reliable, so it is checked visually instead.
 
@@ -497,7 +510,7 @@ def card(*content) -> Div:
     Returns:
         A styled Div containing the content.
     """
-    box = Div(*content)
+    box: Any = Div(*content)
     box = change_background_color(box, CARD_BG)
     box = change_border(box, CARD_BORDER)
     box = change_padding(box, "12px")
@@ -598,16 +611,14 @@ def reaction_builder(state: State) -> Page:
             Header("Reactants", 3),
             "Substances that begin a chemical reaction.",
             LineBreak(),
-            Button("Add reactant", "molecule_builder",
-                   [Argument("kind", "reactant")]),
+            Button("Add reactant", "molecule_builder", {"kind": "reactant"}),
         ),
         LineBreak(),
         card(
             Header("Products", 3),
             "Substances created by the chemical reaction.",
             LineBreak(),
-            Button("Add product", "molecule_builder",
-                   [Argument("kind", "product")]),
+            Button("Add product", "molecule_builder", {"kind": "product"}),
         ),
         HorizontalRule(),
         Button("Review my reaction", "reaction_review"),
@@ -746,7 +757,7 @@ def molecule_builder(
         "Currently adding a " + state.draft_kind + ".",
         card(
             Header("Preview", 3),
-            change_width(bold(preview_text), "24px"),
+            change_text_size(bold(preview_text), "24px"),
         ),
         HorizontalRule(),
         Header("Step 1: Coefficient", 3),
@@ -765,12 +776,11 @@ def molecule_builder(
         "Subscript:",
         TextBox("subscript", "1", "number"),
         error_box(state.error),
-        Button("Add element", "molecule_builder", [Argument("action", "add")]),
+        Button("Add element", "molecule_builder", {"action": "add"}),
         Button("Delete last element", "molecule_builder",
-               [Argument("action", "delete_element")]),
+               {"action": "delete_element"}),
         HorizontalRule(),
-        Button("Save molecule", "molecule_builder",
-               [Argument("action", "save")]),
+        Button("Save molecule", "molecule_builder", {"action": "save"}),
         Button("Cancel", "reaction_review"),
     ])
     return Page(state, content)
@@ -812,7 +822,7 @@ def reaction_review(
         progress(2),
         card(
             Header("Your reaction", 3),
-            change_width(bold(reaction_text(state)), "22px"),
+            change_text_size(bold(reaction_text(state)), "22px"),
         ),
         HorizontalRule(),
         Header("Reactants", 3),
@@ -823,7 +833,7 @@ def reaction_review(
     for i, molecule in enumerate(state.reactants):
         content.append(bold(molecule_name(molecule)))
         content.append(Button("Delete", "reaction_review",
-                              [Argument("delete_reactant", i)]))
+                              {"delete_reactant": i}))
 
     content.append(Header("Products", 3))
     if len(state.products) == 0:
@@ -831,14 +841,14 @@ def reaction_review(
     for i, molecule in enumerate(state.products):
         content.append(bold(molecule_name(molecule)))
         content.append(Button("Delete", "reaction_review",
-                              [Argument("delete_product", i)]))
+                              {"delete_product": i}))
 
     content.extend([
         HorizontalRule(),
         Button("Add another reactant", "molecule_builder",
-               [Argument("kind", "reactant")]),
+               {"kind": "reactant"}),
         Button("Add another product", "molecule_builder",
-               [Argument("kind", "product")]),
+               {"kind": "product"}),
     ])
 
     if len(state.reactants) > 0 and len(state.products) > 0:
@@ -932,7 +942,7 @@ def mass_input(state: State, grams: str = "") -> Page:
         italic(heading + " — molecule " + str(state.mass_index + 1)
                + " of " + str(len(group))),
         card(
-            change_width(bold(molecule_name(molecule)), "26px"),
+            change_text_size(bold(molecule_name(molecule)), "26px"),
             instructions,
             "Grams:",
             TextBox("grams", "", "text"),
@@ -1030,6 +1040,13 @@ def results(state: State) -> Page:
 def summary(state: State) -> Page:
     """Display either an error message or the full results tables.
 
+    ADVANCED: "# type: ignore[arg-type]" tells the type checker (mypy) to
+    skip one specific complaint on that line. Table accepts rows of
+    strings, but mypy treats list[list[str]] as a different type from the
+    list[list[...]] it expects (Python lists are "invariant"). The data is
+    valid, so the warning is safe to ignore. It does not change how the
+    code runs.
+
     Args:
         state: The current app state (not modified).
 
@@ -1043,26 +1060,26 @@ def summary(state: State) -> Page:
             error_box(state.summary),
             HorizontalRule(),
             Button("Return to reaction review", "reaction_review"),
-            Button("Start a new reaction", "index", [Argument("restart", True)]),
+            Button("Start a new reaction", "index", {"restart": True}),
         ])
 
     return Page(state, [
         title("Your Stoichiometry Results"),
         card(
             Header("Reaction", 3),
-            change_width(bold(state.result_reaction), "22px"),
+            change_text_size(bold(state.result_reaction), "22px"),
         ),
         LineBreak(),
         card(
             Header("Limiting reactant", 3),
-            change_width(bold(state.result_limiting), "22px"),
+            change_text_size(bold(state.result_limiting), "22px"),
         ),
         Header("Leftover reactants", 3),
-        Table(state.result_leftovers),
+        Table(state.result_leftovers),  # type: ignore[arg-type]
         Header("Product yields", 3),
-        Table(state.result_yields),
+        Table(state.result_yields),  # type: ignore[arg-type]
         HorizontalRule(),
-        Button("Start a new reaction", "index", [Argument("restart", True)]),
+        Button("Start a new reaction", "index", {"restart": True}),
         Button("Return to reaction review", "reaction_review"),
     ])
 
